@@ -29,7 +29,10 @@ editor: Kerem Karagöz & Immanuel Klein
 \newpage
 
 ```{r}
+tinytex::install_tinytex()
+library(dplyr)
 library(ggplot2)
+library(tinytex)
 ```
 
 # Task Set 1
@@ -41,7 +44,27 @@ For tasks 1.1-1.3, assume you throw 3 dice -- normal dice with 6 sides each ;)
 Create a data frame with all possible combinations (outcomes) that can result from throwing all the dice. (Each row should represent one possible outcome.) Print the first and last 10 rows of the data frame and state how many possible outcomes there are.
 
 ```{r}
-# write code here
+# Define the number of sides of the dice
+dice_sides <- 1:6
+
+# Generate all possible sequences of three dice throws
+all_combinations <- expand.grid(dice_sides, dice_sides, dice_sides)
+
+# Name the columns
+colnames(all_combinations) <- c("Die1", "Die2", "Die3")
+
+# Get the first 10 rows
+first_10 <- head(all_combinations, 10)
+
+# Get the last 10 rows
+last_10 <- tail(all_combinations, 10)
+
+# Number of possible outcomes
+num_outcomes <- nrow(all_combinations)
+
+print(first_10)
+print(last_10)
+print(num_outcomes)
 ```
 
 ## Task 1.2
@@ -49,7 +72,26 @@ Create a data frame with all possible combinations (outcomes) that can result fr
 Create a data frame showing all possible sums that can result from throwing the three dice along with their probabilities. Report the results in a summary table (data frame) and a plot (visual graph).
 
 ```{r}
-#write code here
+# Generate all possible outcomes when throwing 3 dice
+outcomes <- expand.grid(Die1 = 1:6, Die2 = 1:6, Die3 = 1:6)
+
+# Calculate the sum of each outcome
+outcomes$Sum <- outcomes$Die1 + outcomes$Die2 + outcomes$Die3
+
+# Create a summary table for the sums and their probabilities
+sum_probabilities <- outcomes %>%
+  group_by(Sum) %>%
+  summarise(Probability = n() / nrow(outcomes))
+
+print(sum_probabilities)
+
+# Plot the bar chart of the possible sums
+ggplot(sum_probabilities, aes(x = Sum, y = Probability)) +
+  geom_bar(stat = "identity", fill = "blue", alpha = 0.7) +
+  labs(title = "Probability Distribution of Sums for 3 Dice Rolls",
+       x = "Sum", y = "Probability") +
+  theme_minimal() +
+  scale_x_continuous(breaks = sum_probabilities$Sum)
 ```
 
 ## Task 1.3
@@ -57,7 +99,19 @@ Create a data frame showing all possible sums that can result from throwing the 
 Compute the probability that the sum is $\geq$ `10`, *given* that at least one of the dice shows a `3`.
 
 ```{r}
-# write code here
+# Filter outcomes where at least one of the dies shows a 3
+filtered_outcomes <- outcomes %>%
+  filter(Die1 == 3 | Die2 == 3 | Die3 == 3)
+
+# Calculate the probability that the sum of the dies is ≥ 10
+total_filtered_outcomes <- nrow(filtered_outcomes)
+desired_outcomes <- filtered_outcomes %>%
+  filter(Sum >= 10)
+
+probability <- nrow(desired_outcomes) / total_filtered_outcomes
+
+# Probability of the sum is ≥ 10, given that at least one of the dice shows a 3
+print(probability)
 ```
 
 \newpage
