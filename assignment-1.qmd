@@ -29,7 +29,6 @@ editor: Kerem Karagöz & Immanuel Klein
 \newpage
 
 ```{r}
-tinytex::install_tinytex()
 library(dplyr)
 library(ggplot2)
 library(tinytex)
