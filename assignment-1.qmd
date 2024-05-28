@@ -1,9 +1,12 @@
 ---
-title: "Assignment"
+title: "Assignment 1"
 format: pdf
-editor: Kerem Karagöz & Immanuel Klein
-  markdown: 
-    wrap: sentence
+author:
+  - name: "Kerem Karagöz"
+  - name: "Immanuel Klein"
+editor: visual
+markdown: 
+  wrap: sentence
 ---
 
 # General Information
@@ -89,7 +92,6 @@ ggplot(sum_probabilities, aes(x = Sum, y = Probability)) +
   geom_bar(stat = "identity", fill = "blue", alpha = 0.7) +
   labs(title = "Probability Distribution of Sums for 3 Dice Rolls",
        x = "Sum", y = "Probability") +
-  theme_minimal() +
   scale_x_continuous(breaks = sum_probabilities$Sum)
 ```
 
@@ -110,7 +112,7 @@ desired_outcomes <- filtered_outcomes %>%
 probability <- nrow(desired_outcomes) / total_filtered_outcomes
 
 # Probability of the sum is ≥ 10, given that at least one of the dice shows a 3
-print(probability)
+print(paste("Probability:", probability))
 ```
 
 \newpage
