@@ -110,7 +110,35 @@ For tasks 2.1 and 2.2, suppose there are Factory A and Factory B, producing the 
 You receive a shipment from one of the factories, and upon inspection, you find that the shipment contains defective products. Compute the probability that the next shipment from this company will also contain defective products.
 
 ```{r}
-# write code here
+# Defect rates for Factory A and Factory B
+defect.A <- 0.10
+defect.B <- 0.20
+
+# Prior Probabilities (They are equally likely at the first state)
+prior.A <- 0.50
+prior.B <- 0.50
+
+# Calculate the likelihood
+likelihood.defect.A <- defect.A
+likelihood.defect.B <- defect.B
+
+# Calculate the  posterior probabilities with the help of normalization constant
+posterior.A.unnormalized <- prior.A * likelihood.defect.A
+posterior.B.unnormalized <- prior.B * likelihood.defect.B
+
+constant <- posterior.A.unnormalized + posterior.B.unnormalized
+
+posterior.A <- posterior.A.unnormalized / constant
+posterior.B <- posterior.B.unnormalized / constant
+
+# Calculate the probability that the next shipment contains defective products
+p.next.defect.A <- defect.A
+p.next.defect.B <- defect.B
+
+# Probability that the next shipment contains defective products
+p.next.defect <- posterior.A * p.next.defect.A + posterior.B * p.next.defect.B
+
+print(paste("P Next Defect:", p.next.defect))
 ```
 
 ## Task 2.2
@@ -123,7 +151,24 @@ Suppose the R&D department came up with a Machine Learning algorithm that (imper
 When applying the the algorithm to the shipped products, the test is positive for Factory A. Including the defect data from 2.1, compute the posterior probability that your shipment is from Company A.
 
 ```{r}
-# write code here
+# Accuracies of the ML algorithms
+accuracy.A <- 0.93
+accuracy.B <- 0.87
+
+# Probability of a positive test result for Factory A and Factory B
+p.positive.A <- accuracy.A
+p.positive.B <- 1 - accuracy.B
+
+# Calculate the posterior probabilities given the test result using prior posteriors from Task 1
+posterior.A.test.unnormalized <- posterior.A * p.positive.A
+posterior.B.test.unnormalized <- posterior.B * p.positive.B
+
+constant.test <- posterior.A.test.unnormalized + posterior.B.test.unnormalized
+
+posterior.A.test <- posterior.A.test.unnormalized / constant.test
+
+# Print the updated posterior probability for Factory A
+print(paste("Posterior Prob That Shipment is Coming from Company A:", posterior.A.test))
 ```
 
 \newpage
