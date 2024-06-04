@@ -5,6 +5,8 @@ author:
   - name: "Kerem Karagöz"
   - name: "Immanuel Klein"
 editor: visual
+execute: 
+  warning: false
 ---
 
 # General Information
@@ -25,7 +27,6 @@ knitr::opts_chunk$set(tidy = TRUE, tidy.opts=list(width.cutoff=50))
 
 ```{r}
 # load packages here
-#| warning: false
 library(dplyr)
 library(ggplot2)
 library(tinytex)
@@ -131,12 +132,8 @@ constant <- posterior.A.unnormalized + posterior.B.unnormalized
 posterior.A <- posterior.A.unnormalized / constant
 posterior.B <- posterior.B.unnormalized / constant
 
-# Calculate the probability that the next shipment contains defective products
-p.next.defect.A <- defect.A
-p.next.defect.B <- defect.B
-
 # Probability that the next shipment contains defective products
-p.next.defect <- posterior.A * p.next.defect.A + posterior.B * p.next.defect.B
+p.next.defect <- posterior.A * likelihood.defect.A + posterior.B * likelihood.defect.B
 
 print(paste("P Next Defect:", p.next.defect))
 ```
@@ -202,7 +199,7 @@ ggplot(samples.df, aes(x = sample)) +
   stat_function(fun = dbeta, 
                 args = c(3, 7), 
                 color = "red",
-                size = 1) +
+                linewidth = 1) +
   labs(title = "Prior Distribution with Sample",
        x = "Proportion of Land",
        y = "Density")
@@ -212,7 +209,7 @@ ggplot(samples.df, aes(x = sample)) +
 
 Run the following code chunk that uses your object sample to obtain prior probabilities for the possible proportions of land 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1 that approximate your prior distribution.
 
-```{r eval=FALSE, echo=TRUE}
+```{r}
 prop <- seq(0, 1, length.out = 12)
 priors <- vector("numeric", length(prop))
 for (i in seq_along(prop)){
