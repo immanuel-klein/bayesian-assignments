@@ -54,7 +54,7 @@ head(shaq.first.seasons)
 Use the training data and estimate a simple regression model where you predict points (PTS) from field goal attempts (FGA). Specify the regression model such that the intercept represents the expected number of points, given an average number of FGA. Provide a table that summarizes the posterior distribution.
 
 ```{r}
-model <- quap(
+model1 <- quap(
   alist(
     PTS ~ dnorm(mu, sd), 
     mu <- a + b * (FGA - mean(FGA)), 
@@ -67,7 +67,7 @@ model <- quap(
   ),
   data = shaq.first.seasons)
 
-summary(model)
+summary(model1)
 ```
 
 ## Task 1.2
@@ -75,7 +75,7 @@ summary(model)
 Estimate a multiple regression model, where you add free throw attempts (FTA) as a second predictor. Again, the intercept should represents the expected number of points, given an average number of FGA and FTA. Provide a table that summarizes the posterior distribution.
 
 ```{r}
-model <- quap(
+model2 <- quap(
   alist(
     PTS ~ dnorm(mu, sd), 
     mu <- a + b1 * (FGA - mean(FGA)) + b2 * (FTA - mean(FTA)), 
@@ -89,7 +89,7 @@ model <- quap(
   ),
   data = shaq.first.seasons)
 
-summary(model)
+summary(model2)
 ```
 
 \newpage
@@ -99,7 +99,8 @@ summary(model)
 For Tasks 2.1 and 2.2, create a training data set `shaq_test` that contains all the data from the `Season` 6 to 10.
 
 ```{r}
-#write code here
+shaq_test <- shaq %>% filter(Season >= 6 & Season <= 10)
+head(shaq_test)
 ```
 
 # Task 2.1
@@ -107,7 +108,32 @@ For Tasks 2.1 and 2.2, create a training data set `shaq_test` that contains all 
 Use posterior samples from the simple regression model that you estimated in Task 1.1 and the FGA data from the test set to predict new points. Create a plot that shows the predicted point distribution along the actual point distribution from Season `Season` 6 to 10.
 
 ```{r}
-#write code here
+# Extracting posterior samples
+post.model1 <- extract.samples(model1)
+
+# Replicating the mean values to match the dimensions
+mean.FGA <- mean(shaq$FGA)
+FGA.adj <- shaq_test$FGA - mean.FGA
+
+# Making predictions
+PTS.predicted <- post.model1$a + post.model1$a + post.model1$b %*% t(FGA.adj)
+
+# Summarizing predictions
+pred.summary <- apply(PTS.predicted, 2, mean)
+actual.pts <- shaq_test$PTS
+
+# Plotting predictions vs actual
+plot.df1 <- data.frame(
+  Season = shaq_test$Season,
+  Actual = actual.pts,
+  Predicted = pred.summary
+)
+
+ggplot(plot.df1, aes(x = Season)) +
+  geom_line(aes(y = Actual, color = 'Actual')) +
+  geom_line(aes(y = Predicted, color = 'Predicted')) +
+  labs(title = 'Predicted vs Actual Points (Simple Regression)',
+       y = 'Points', color = 'Legend')
 ```
 
 # Task 2.2
@@ -115,7 +141,33 @@ Use posterior samples from the simple regression model that you estimated in Tas
 Use posterior samples from the multiple regression model that you estimated in Task 1.2 and the FGA and FTA data from the test set to predict new points. Create a plot that shows the predicted point distribution along the actual point distribution from Season `Season` 6 to 10.
 
 ```{r}
-#write code here
+# Extracting posterior samples
+post.model2 <- extract.samples(model2)
+
+# Replicating the mean values to match the dimensions for FTA as well
+mean.FTA <- mean(shaq$FTA)
+FTA.adj <- shaq_test$FTA - mean.FTA
+
+# Making predictions
+PTS.predicted.multi <- post.model2$a + post.model2$b1 %*% t(FGA.adj) + 
+post.model2$b2 %*% t(FTA.adj)
+
+# Summarizing predictions
+pred.summary.multi <- apply(PTS.predicted.multi, 2, mean)
+actual.pts.multi <- shaq_test$PTS
+
+# Plotting predictions vs actual
+plot.df2 <- data.frame(
+  Season = shaq_test$Season,
+  Actual = actual.pts.multi,
+  Predicted = pred.summary.multi
+)
+
+ggplot(plot.df2, aes(x = Season)) +
+  geom_line(aes(y = Actual, color = 'Actual')) +
+  geom_line(aes(y = Predicted, color = 'Predicted')) +
+  labs(title = 'Predicted vs Actual Points (Multiple Regression)',
+       y = 'Points', color = 'Legend')
 ```
 
 \newpage
@@ -131,7 +183,27 @@ $$
 $$ Compute the squared errors for the simple regression model and the multiple regression model. Which model makes better predictions for the test data?
 
 ```{r}
-# write code here
+# Function to compute sum of squared errors
+error <- function(actual, predicted) {
+  sum((actual - predicted)^2)
+}
+
+# Calculate SSE for both models
+sse <- sapply(list(
+  simple = list(actual = actual.pts, predicted = pred.summary),
+  multiple = list(actual = actual.pts.multi, predicted = pred.summary.multi)
+), function(x) error(x$actual, x$predicted))
+
+sse
+
+# Determine the better model
+better.model <- ifelse(sse["simple"] < sse["multiple"], 
+                       "Simple Regression", "Multiple Regression")
+
+cat("Sum of Squared Errors (SSE):\n",
+    "Simple Regression: ", sse["simple"], "\n",
+    "Multiple Regression: ", sse["multiple"], "\n",
+    "Better Model: ", better.model, "\n")
 ```
 
 ## Task 3.2
@@ -139,5 +211,17 @@ $$ Compute the squared errors for the simple regression model and the multiple r
 For both models, compute the (non-squared) differences between each prediction and observation. Create a plot that shows the distributions of differences for both models.
 
 ```{r}
-# write code here
+# Calculate differences for both models
+differences <- data.frame(
+  Model = rep(c("Simple Regression", "Multiple Regression"), each = 
+  length(actual.pts)),
+  Differences = c(actual.pts - pred.summary, 
+  actual.pts.multi - pred.summary.multi)
+)
+
+# Plot distributions of differences
+ggplot(differences, aes(x = Differences, fill = Model)) +
+  geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
+  labs(title = "Distribution of Prediction Errors",
+       x = "Prediction Error", fill = "Model")
 ```
