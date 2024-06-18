@@ -9,21 +9,7 @@ execute:
   warning: false
 ---
 
-# General Information
-
--   **Points**: Assignment 3 comprises of 6 tasks, 2 points each (12 in total). 2 points are obtained for complete and correct answers. 1 point is obtained for a proper approach or if only part of the task is solved.
-
--   **Submission**: Hand in the assignment as a `Markdown` report ([RMarkdown](https://rmarkdown.rstudio.com/lesson-15.html) or [Quarto](https://rstudio.github.io/cheatsheets/html/quarto.html)) rendered as PDF. The PDF report should show the result(s), the code that produced the result(s), and possibly additional text or comment. Also indicate your name. The report should be uploaded on Moodle until Wednesday, June 21, 9:45 am.
-
--   **Working in teams**: Everyone needs to hand in a report on Moodle. However, the report can be handed in as a team work (max. 2 people). When working in teams, state at the beginning of the document, who you worked with. It Ideally, teams use GitHub and add a link to the GitHub repository to which both contributed.
-
--   **Code**: To automate code wrapping (such that long code lines are not cut off), install the [formatR](https://bookdown.org/yihui/rmarkdown-cookbook/opts-tidy.html) package and add the following code chunk at the beginning of the document:
-
-```{r}
-knitr::opts_chunk$set(tidy = TRUE, tidy.opts=list(width.cutoff=50))
-```
-
-\newpage
+GitHub: <https://github.com/immanuel-klein/bayesian-assignments.git>
 
 Load the data set `shaq` to solve the tasks below. If the `Markdown` document and the data set are stored in different folders (e.g., "BayesIntro/assignments/assignment_3.md" and "BayesIntro/data/shaq.csv" you can use the [package `here`](https://cran.r-project.org/web/packages/here/vignettes/rmarkdown.html) to load the data.
 
@@ -40,13 +26,15 @@ library(rethinking)
 shaq <- read.csv("shaq.csv")
 ```
 
+\newpage
+
 # Task Set 1
 
 For Tasks 1.1 and 1.2, create a training data set `shaq_training` that contains all the data from the `Season` 1 to 5.
 
 ```{r}
 shaq.first.seasons <- shaq %>% filter(Season >= 1 & Season <= 5)
-head(shaq.first.seasons)
+head(shaq.first.seasons, n = 3)
 ```
 
 ## Task 1.1
@@ -100,7 +88,7 @@ For Tasks 2.1 and 2.2, create a training data set `shaq_test` that contains all 
 
 ```{r}
 shaq_test <- shaq %>% filter(Season >= 6 & Season <= 10)
-head(shaq_test)
+head(shaq_test, n = 3)
 ```
 
 # Task 2.1
@@ -130,8 +118,8 @@ plot.df1 <- data.frame(
 )
 
 ggplot(plot.df1, aes(x = Season)) +
-  geom_line(aes(y = Actual, color = 'Actual')) +
-  geom_line(aes(y = Predicted, color = 'Predicted')) +
+  geom_count(aes(y = Actual, color = 'Actual'), alpha = 0.6) +
+  geom_count(aes(y = Predicted, color = 'Predicted'), alpha = 0.6) +
   labs(title = 'Predicted vs Actual Points (Simple Regression)',
        y = 'Points', color = 'Legend')
 ```
@@ -164,8 +152,8 @@ plot.df2 <- data.frame(
 )
 
 ggplot(plot.df2, aes(x = Season)) +
-  geom_line(aes(y = Actual, color = 'Actual')) +
-  geom_line(aes(y = Predicted, color = 'Predicted')) +
+  geom_count(aes(y = Actual, color = 'Actual'), alpha = 0.6) +
+  geom_count(aes(y = Predicted, color = 'Predicted'), alpha = 0.6) +
   labs(title = 'Predicted vs Actual Points (Multiple Regression)',
        y = 'Points', color = 'Legend')
 ```
@@ -185,7 +173,7 @@ $$ Compute the squared errors for the simple regression model and the multiple r
 ```{r}
 # Function to compute sum of squared errors
 error <- function(actual, predicted) {
-  sum((actual - predicted)^2)
+  sum((predicted - actual)^2)
 }
 
 # Calculate SSE for both models
@@ -193,8 +181,6 @@ sse <- sapply(list(
   simple = list(actual = actual.pts, predicted = pred.summary),
   multiple = list(actual = actual.pts.multi, predicted = pred.summary.multi)
 ), function(x) error(x$actual, x$predicted))
-
-sse
 
 # Determine the better model
 better.model <- ifelse(sse["simple"] < sse["multiple"], 
@@ -213,10 +199,18 @@ For both models, compute the (non-squared) differences between each prediction a
 ```{r}
 # Calculate differences for both models
 differences <- data.frame(
-  Model = rep(c("Simple Regression", "Multiple Regression"), each = 
-  length(actual.pts)),
-  Differences = c(actual.pts - pred.summary, 
-  actual.pts.multi - pred.summary.multi)
+  Model = rep(c("Simple Regression", "Multiple Regression"), 
+              each = length(actual.pts)),
+  Differences = c(pred.summary - actual.pts, 
+                  pred.summary.multi - actual.pts.multi)
+)
+
+# Calculate absolute differences for both models
+differences.abs <- data.frame(
+  Model = rep(c("Simple Regression", "Multiple Regression"), 
+              each = length(actual.pts)),
+  Differences = c(abs(pred.summary - actual.pts), 
+                  abs(pred.summary.multi - actual.pts.multi))
 )
 
 # Plot distributions of differences
@@ -224,4 +218,14 @@ ggplot(differences, aes(x = Differences, fill = Model)) +
   geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
   labs(title = "Distribution of Prediction Errors",
        x = "Prediction Error", fill = "Model")
+
+# Plot distributions of absolute differences
+ggplot(differences.abs, aes(x = Differences, fill = Model)) +
+  geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
+  labs(title = "Distribution of (Absolute) Prediction Errors",
+       x = "Absolute Prediction Error", fill = "Model")
 ```
+
+Remark:
+
+We're plotting both the differences and their absolute values: The absolute plot represents the smaller error of the multiple regression better. The standard plot shows that for the simple regression differences are positive, indicating that prediction is higher than the actual point, the model overshoots.
