@@ -114,8 +114,8 @@ model <- ulam(
 precis(model, depth = 2) 
 
 samples <- extract.samples(model)
-cat("Avg. probability of CHD for women:", inv_logit(mean(post$a)), "\n")
-cat("Avg. probability of CHD for men:", inv_logit(mean(post$a + post$bm)), "\n")
+cat("Avg. probability of CHD for women:", inv_logit(mean(samples$a)), "\n")
+cat("Avg. probability of CHD for men:", inv_logit(mean(samples$a + samples$bm)), "\n")
 ```
 
 # Task 1.2
@@ -152,10 +152,44 @@ Does the effect of diabetes differ between men and women?
 #| output: false
 
 # write data list and model here
+heart.chd.gender.diabetes <- na.omit(heart[, c("male", "diabetes", "TenYearCHD")])
+
+model <- ulam(
+  alist(
+    TenYearCHD ~ dbinom(1, p),
+    logit(p) <- a + bm * male + bd * diabetes + bmd * male * diabetes,
+    a ~ dnorm(0, 1.5),
+    bm ~ dnorm(0, 0.5),
+    bd ~ dnorm(0, 0.5),
+    bmd ~ dnorm(0, 0.5)
+  ), data = list(
+    TenYearCHD = heart.chd.gender.diabetes$TenYearCHD,
+    male = heart.chd.gender.diabetes$male,
+    diabetes = heart.chd.gender.diabetes$diabetes
+  ), chains = 4, cores = 4
+)
 ```
 
 ```{r 2.1}
 # write code here
+# Summarize the posterior distributions
+precis(model, depth = 2)
+
+# Extract samples
+samples <- extract.samples(model)
+
+# Define the inverse logit function
+inv.logit <- function(x) { exp(x) / (1 + exp(x)) }
+
+# Directly calculate and print probabilities and differences
+cat("Avg. probability of CHD for women without diabetes:", mean(inv.logit(samples$a)), "\n",
+    "Avg. probability of CHD for men without diabetes:", mean(inv.logit(samples$a + samples$bm)), "\n",
+    "Avg. probability of CHD for women with diabetes:", mean(inv.logit(samples$a + samples$bd)), "\n",
+    "Avg. probability of CHD for men with diabetes:", mean(inv.logit(samples$a + samples$bm + samples$bd + samples$bmd)), "\n",
+    "Increase for women:", (increase_women <- mean(inv.logit(samples$a + samples$bd)) - mean(inv.logit(samples$a))), "\n",
+    "Increase for men:", (increase_men <- mean(inv.logit(samples$a + samples$bm + samples$bd + samples$bmd)) - mean(inv.logit(samples$a + samples$bm))), "\n",
+    "Difference:", (difference <- increase_men - increase_women), "\n",
+    "So the effect of diabetes on the probability of developing CHD is greater for men than for women", "\n")
 ```
 
 # Task 2.2
@@ -164,6 +198,21 @@ For the model of `Task 2.1`, visualize the posterior distributions of each group
 
 ```{r 2.2}
 # write code here
+# Create a data frame for visualization
+samples.df <- data.frame(
+  No_Diabetes_Female = inv.logit(samples$a),
+  No_Diabetes_Male = inv.logit(samples$a + samples$bm),
+  Diabetes_Female = inv.logit(samples$a + samples$bd),
+  Diabetes_Male = inv.logit(samples$a + samples$bm + samples$bd + samples$bmd)
+) %>%
+  pivot_longer(cols = everything(), names_to = "Group", values_to = "Probability")
+
+# Plot the posterior distributions
+ggplot(samples.df, aes(x = Probability, fill = Group)) +
+  geom_density(alpha = 0.6) +
+  labs(title = "Posterior of CHD Probability by Group",
+       x = "Probability of CHD",
+       y = "Density")
 ```
 
 \newpage
