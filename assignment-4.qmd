@@ -231,10 +231,52 @@ Provide a summary of the posterior distributions.
 #| output: false
 
 # write data list and model here
+heart <- na.omit(heart[, c("male", "age", "TenYearCHD")])
+
+# Center the age variable around the mean to interpret the intercept as the risk at average age
+heart <- heart %>%
+  mutate(age_centered = age - mean(age))
+
+# Split data by gender
+heart.male <- heart %>% filter(male == 1)
+heart.female <- heart %>% filter(male == 0)
+
+# Fit the Bayesian logistic regression model for males using ulam
+model.male <- ulam(
+  alist(
+    TenYearCHD ~ dbinom(1, p),
+    logit(p) <- a + b_age * age_centered,
+    a ~ dnorm(0, 1.5),
+    b_age ~ dnorm(0, 0.5)
+  ), data = list(
+    TenYearCHD = heart.male$TenYearCHD,
+    age_centered = heart.male$age_centered
+  ), chains = 4, cores = 4
+)
+
+# Fit the Bayesian logistic regression model for females using ulam
+model.female <- ulam(
+  alist(
+    TenYearCHD ~ dbinom(1, p),
+    logit(p) <- a + b_age * age_centered,
+    a ~ dnorm(0, 1.5),
+    b_age ~ dnorm(0, 0.5)
+  ), data = list(
+    TenYearCHD = heart.female$TenYearCHD,
+    age_centered = heart.female$age_centered
+  ), chains = 4, cores = 4
+)
 ```
 
 ```{r 3.1}
 # write code here
+# Summarize the posterior distributions
+precis(model.male, depth = 2)
+precis(model.female, depth = 2)
+
+# Extract samples
+samples.male <- extract.samples(model.male)
+samples.female <- extract.samples(model.female)
 ```
 
 ## Task 3.2
@@ -244,4 +286,26 @@ Does age increase the risk of developing the disease and does this effect differ
 
 ```{r 3.2}
 # write code here
+samples.df <- data.frame(
+  Male = samples.male$b_age,
+  Female = samples.female$b_age
+) %>%
+  pivot_longer(cols = c(Male, Female), names_to = "Gender", values_to = "Age.Effect")
+
+# Plot the posterior distributions
+ggplot(samples.df, aes(x = Age.Effect, fill = Gender)) +
+  geom_density(alpha = 0.6) +
+  labs(title = "Posterior Distribution of Age Effect on CHD Risk by Gender",
+       x = "Effect of Age on CHD Risk",
+       y = "Density") +
+  theme_minimal()
+
+# Calculate and print differences in the age effect
+age.effect.diff <- samples.male$b_age - samples.female$b_age
+
+cat("Average age effect for men:", mean(samples.male$b_age), "\n")
+cat("Average age effect for women:", mean(samples.female$b_age), "\n")
+cat("Difference in age effect between men and women:", mean(age.effect.diff), "\n")
+cat("So the effect of age on the probability of developing CHD is", 
+    ifelse(mean(age.effect.diff) > 0, "greater for men than for women", "greater for women than for men"), "\n")
 ```
