@@ -1,71 +1,18 @@
 ---
-title: "Assignment"
+title: "Assignment 4"
 format: pdf
 execute: 
   cache: true
+  warning: false
+author:
+  - name: "Kerem Karagöz"
+  - name: "Immanuel Klein"
 editor: 
   markdown: 
     wrap: sentence
 ---
 
-# General Information
-
--   **Points**: Assignment 4 comprises of 6 tasks, 2 points each (12 in total).
-    2 points are obtained for complete and correct answers.
-    1 point is obtained for a proper approach or if only part of the task is solved.
-
--   **Submission**: Hand in the assignment as a `Markdown` report ([RMarkdown](https://rmarkdown.rstudio.com/lesson-15.html) or [Quarto](https://rstudio.github.io/cheatsheets/html/quarto.html)) rendered as PDF.
-    The PDF report should show the result(s), the code that produced the result(s), and possibly additional text or comment.
-    Also indicate your name.
-    The report should be uploaded on Moodle until Friday, July 5, 6 pm.
-
--   **Working in teams**: Everyone needs to hand in a report on Moodle.
-    However, the report can be handed in as a team work (max. 2 people).
-    When working in teams, state at the beginning of the document, who you worked with.
-    It Ideally, teams use GitHub and add a link to the GitHub repository to which both contributed.
-
-\newpage
-
-# Additional remarks
-
-## `ulam` and `Quarto`
-
-Running MCMC with `ulam()` takes some time and produces many messages.
-This can be annoying when you repeatedly render the `Quarto` document and the goal is to have a clean report.
-Here are some tips to avoid long rendering times and an ugly document:
-
--   Write the ulam() model in a separate code chunk and give the chunk a name `{r name}`.In addition, specify the following settings at the top of the code chunk to avoid printing the MCMC progress messages of `ulam()` in the PDF document,
-
-``` r
-#| echo: true
-#| eval: true
-#| output: false
-
-# data list and model
-```
-
--   Set the [caching option](https://quarto.org/docs/computations/caching.html) `cache: true` in the YAML header at the start of the document.
-    The first time the code chunk is rendered, its results are cached (stored) in the background.
-    If you leave the code chunk untouched, the results are directly retrieved the next time you render the document.
-    This avoids rerunning a model with every new rendering of the document.
-    The chunk will only be newly evaluated if you actually change its code.
-    To allow `Quarto` to recognize a code chunk, it needs a name.
-
--   If you could not not install the full `rethinking` package, solve the tasks with the `quap()` function instead of the `ulam()` function.
-    However, if `ulam()` is available, make use of it.
-
-## Data list and index variables
-
--   Provide `ulam()` a list of variables and values that you need for estimating the model rather than the entire data frame.
-    `ulam()` works more reliable with lists.
-    Moreover, while creating the list, you can also recode variables (e.g., from dummy values (0,1) or group names (male, female) to index values (1,2))
-
--   Using indices for group specific parameters such as in `y = a[G] + b[G]*X`, only works for integer values larger than 0, that is: `G = {1,2,3,...}`.
-    When the variable values are names or include 0, you have to recode it first.
-    Use the function `as.integer(variable)` if the variable is of type `factor` or `as.integer(as.factor(variable))` if the variable is of type `character`.
-    Use `variable + 1` when the variable is dummy coded with 0 and 1 to get values 1 and 2.
-
-\newpage
+GitHub: <https://github.com/immanuel-klein/bayesian-assignments.git>
 
 ```{r packages}
 #load packages here
@@ -81,6 +28,8 @@ library(rstan)
 # load the data set 'heart.csv' here
 heart <- read.csv("heart.csv")
 ```
+
+\newpage
 
 # Task Set 1
 
@@ -98,11 +47,11 @@ What is the average probability of men and women to develop the disease?
 # write data list and model here
 heart.chd.gender <- na.omit(heart[, c("male", "TenYearCHD")])
 
-model <- ulam(
+model.gender <- ulam(
   alist(
     TenYearCHD ~ dbinom(1, p),  
     logit(p) <- a + bm * male,  
-    a ~ dnorm(0, 1.5), # Check standard deviations of a and bm      
+    a ~ dnorm(0, 1.5),
     bm ~ dnorm(0, 0.5)          
   ), data = heart.chd.gender, chains = 4, cores = 4
 )
@@ -110,12 +59,13 @@ model <- ulam(
 
 ```{r 1.1}
 #write code here
-#traceplot_ulam(model)
-precis(model, depth = 2) 
+precis(model.gender, depth = 2)
 
-samples <- extract.samples(model)
-cat("Avg. probability of CHD for women:", inv_logit(mean(samples$a)), "\n")
-cat("Avg. probability of CHD for men:", inv_logit(mean(samples$a + samples$bm)), "\n")
+samples <- extract.samples(model.gender)
+cat("Avg. probability of CHD for women:", 
+    round(mean(inv_logit(samples$a)), 3))
+cat("Avg. probability of CHD for men:",
+    round(mean(inv_logit(samples$a + samples$bm)), 3))
 ```
 
 # Task 1.2
@@ -126,9 +76,9 @@ For the model of `Task 1.1`, visualize the posterior distribution of gender-diff
 samples.df <- data.frame(
   Female = inv_logit(samples$a),
   Male = inv_logit(samples$a + samples$bm)) %>%
-  pivot_longer(cols = c(Female, Male), names_to = "Gender", values_to = "Probability")
+  pivot_longer(cols = c(Female, Male), 
+               names_to = "Gender", values_to = "Probability")
 
-# Plot the posterior distributions
 ggplot(samples.df, aes(x = Probability, fill = Gender)) +
   geom_density(alpha = 0.6) +
   labs(title = "Posterior of CHD Probability by Gender",
@@ -152,9 +102,10 @@ Does the effect of diabetes differ between men and women?
 #| output: false
 
 # write data list and model here
-heart.chd.gender.diabetes <- na.omit(heart[, c("male", "diabetes", "TenYearCHD")])
+heart.chd.gender.diabetes <- na.omit(
+  heart[, c("male", "diabetes", "TenYearCHD")])
 
-model <- ulam(
+model.diabetes <- ulam(
   alist(
     TenYearCHD ~ dbinom(1, p),
     logit(p) <- a + bm * male + bd * diabetes + bmd * male * diabetes,
@@ -162,35 +113,29 @@ model <- ulam(
     bm ~ dnorm(0, 0.5),
     bd ~ dnorm(0, 0.5),
     bmd ~ dnorm(0, 0.5)
-  ), data = list(
-    TenYearCHD = heart.chd.gender.diabetes$TenYearCHD,
-    male = heart.chd.gender.diabetes$male,
-    diabetes = heart.chd.gender.diabetes$diabetes
-  ), chains = 4, cores = 4
+  ), data = heart.chd.gender.diabetes, chains = 4, cores = 4
 )
 ```
 
 ```{r 2.1}
 # write code here
 # Summarize the posterior distributions
-precis(model, depth = 2)
+precis(model.diabetes, depth = 2)
 
-# Extract samples
-samples <- extract.samples(model)
+samples <- extract.samples(model.diabetes)
 
-# Define the inverse logit function
-inv.logit <- function(x) { exp(x) / (1 + exp(x)) }
-
-# Directly calculate and print probabilities and differences
-cat("Avg. probability of CHD for women without diabetes:", mean(inv.logit(samples$a)), "\n",
-    "Avg. probability of CHD for men without diabetes:", mean(inv.logit(samples$a + samples$bm)), "\n",
-    "Avg. probability of CHD for women with diabetes:", mean(inv.logit(samples$a + samples$bd)), "\n",
-    "Avg. probability of CHD for men with diabetes:", mean(inv.logit(samples$a + samples$bm + samples$bd + samples$bmd)), "\n",
-    "Increase for women:", (increase_women <- mean(inv.logit(samples$a + samples$bd)) - mean(inv.logit(samples$a))), "\n",
-    "Increase for men:", (increase_men <- mean(inv.logit(samples$a + samples$bm + samples$bd + samples$bmd)) - mean(inv.logit(samples$a + samples$bm))), "\n",
-    "Difference:", (difference <- increase_men - increase_women), "\n",
-    "So the effect of diabetes on the probability of developing CHD is greater for men than for women", "\n")
+cat("Avg. prob. of CHD for women without diabetes:", 
+    round(mean(inv_logit(samples$a)), 3))
+cat("Avg. prob. of CHD for men without diabetes:", 
+    round(mean(inv_logit(samples$a + samples$bm)), 3))
+cat("Avg. probability of CHD for women with diabetes:", 
+    round(mean(inv_logit(samples$a + samples$bd)), 3))
+cat("Avg. probability of CHD for men with diabetes:", 
+    round(mean(inv_logit(samples$a + samples$bm + samples$bd + samples$bmd)), 
+          3))
 ```
+
+In both cases (diabetes vs. no diabetes) the probability of developing CHD is clearly higher for men than it is for women.
 
 # Task 2.2
 
@@ -198,16 +143,16 @@ For the model of `Task 2.1`, visualize the posterior distributions of each group
 
 ```{r 2.2}
 # write code here
-# Create a data frame for visualization
 samples.df <- data.frame(
-  No_Diabetes_Female = inv.logit(samples$a),
-  No_Diabetes_Male = inv.logit(samples$a + samples$bm),
-  Diabetes_Female = inv.logit(samples$a + samples$bd),
-  Diabetes_Male = inv.logit(samples$a + samples$bm + samples$bd + samples$bmd)
+  No.Diabetes.Female = inv_logit(samples$a),
+  No.Diabetes.Male = inv_logit(samples$a + samples$bm),
+  Diabetes.Female = inv_logit(samples$a + samples$bd),
+  Diabetes.Male = inv_logit(samples$a + samples$bm + samples$bd + samples$bmd)
 ) %>%
-  pivot_longer(cols = everything(), names_to = "Group", values_to = "Probability")
+  pivot_longer(cols = everything(), 
+               names_to = "Group", 
+               values_to = "Probability")
 
-# Plot the posterior distributions
 ggplot(samples.df, aes(x = Probability, fill = Group)) +
   geom_density(alpha = 0.6) +
   labs(title = "Posterior of CHD Probability by Group",
@@ -231,50 +176,41 @@ Provide a summary of the posterior distributions.
 #| output: false
 
 # write data list and model here
-heart <- na.omit(heart[, c("male", "age", "TenYearCHD")])
+heart.age <- na.omit(heart[, c("male", "age", "TenYearCHD")])
 
-# Center the age variable around the mean to interpret the intercept as the risk at average age
-heart <- heart %>%
+# Split data by gender and mean center. 
+# We assume that the data needs to be centered for men and women seperately.
+# _ notation instead of . for age_centered, 
+# because ulam didn't accept age.centered.
+heart.male <- heart.age %>% filter(male == 1) %>%
+  mutate(age_centered = age - mean(age))
+heart.female <- heart.age %>% filter(male == 0)%>%
   mutate(age_centered = age - mean(age))
 
-# Split data by gender
-heart.male <- heart %>% filter(male == 1)
-heart.female <- heart %>% filter(male == 0)
-
-# Fit the Bayesian logistic regression model for males using ulam
 model.male <- ulam(
   alist(
     TenYearCHD ~ dbinom(1, p),
-    logit(p) <- a + b_age * age_centered,
+    logit(p) <- a + bage * age_centered,
     a ~ dnorm(0, 1.5),
-    b_age ~ dnorm(0, 0.5)
-  ), data = list(
-    TenYearCHD = heart.male$TenYearCHD,
-    age_centered = heart.male$age_centered
-  ), chains = 4, cores = 4
+    bage ~ dnorm(0, 0.5)
+  ), data = heart.male, chains = 4, cores = 4
 )
 
-# Fit the Bayesian logistic regression model for females using ulam
 model.female <- ulam(
   alist(
     TenYearCHD ~ dbinom(1, p),
-    logit(p) <- a + b_age * age_centered,
+    logit(p) <- a + bage * age_centered,
     a ~ dnorm(0, 1.5),
-    b_age ~ dnorm(0, 0.5)
-  ), data = list(
-    TenYearCHD = heart.female$TenYearCHD,
-    age_centered = heart.female$age_centered
-  ), chains = 4, cores = 4
+    bage ~ dnorm(0, 0.5)
+  ), data = heart.female, chains = 4, cores = 4
 )
 ```
 
 ```{r 3.1}
 # write code here
-# Summarize the posterior distributions
 precis(model.male, depth = 2)
 precis(model.female, depth = 2)
 
-# Extract samples
 samples.male <- extract.samples(model.male)
 samples.female <- extract.samples(model.female)
 ```
@@ -287,25 +223,22 @@ Does age increase the risk of developing the disease and does this effect differ
 ```{r 3.2}
 # write code here
 samples.df <- data.frame(
-  Male = samples.male$b_age,
-  Female = samples.female$b_age
+  Male = samples.male$bage,
+  Female = samples.female$bage
 ) %>%
-  pivot_longer(cols = c(Male, Female), names_to = "Gender", values_to = "Age.Effect")
+  pivot_longer(cols = c(Male, Female), 
+               names_to = "Gender", 
+               values_to = "Age.Effect")
 
-# Plot the posterior distributions
 ggplot(samples.df, aes(x = Age.Effect, fill = Gender)) +
   geom_density(alpha = 0.6) +
   labs(title = "Posterior Distribution of Age Effect on CHD Risk by Gender",
        x = "Effect of Age on CHD Risk",
-       y = "Density") +
-  theme_minimal()
+       y = "Density")
 
-# Calculate and print differences in the age effect
-age.effect.diff <- samples.male$b_age - samples.female$b_age
-
-cat("Average age effect for men:", mean(samples.male$b_age), "\n")
-cat("Average age effect for women:", mean(samples.female$b_age), "\n")
-cat("Difference in age effect between men and women:", mean(age.effect.diff), "\n")
-cat("So the effect of age on the probability of developing CHD is", 
-    ifelse(mean(age.effect.diff) > 0, "greater for men than for women", "greater for women than for men"), "\n")
+cat("Average age effect for men:", mean(samples.male$bage))
+cat("Average age effect for women:", mean(samples.female$bage))
 ```
+
+Age in fact increases the risk of developing CHD.
+The influence that age has, is higher for women than it is for men.
