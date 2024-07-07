@@ -1,0 +1,17 @@
+dplyr
+tidyverse
+ggplot2
+tibble
+tidyr
+readr
+purrr
+stringr
+forcats
+lubridate
+tinytex
+cmdstanr
+posterior
+rethinking
+StanHeaders
+rstan
+digest
