@@ -233,6 +233,7 @@ Provide a summary of the posterior distributions.
 # write data list and model here
 heart <- na.omit(heart[, c("male", "age", "TenYearCHD")])
 
+# To ensure that the regression intercept represents the risk of women and men at the average age
 # Center the age variable around the mean to interpret the intercept as the risk at average age
 heart <- heart %>%
   mutate(age_centered = age - mean(age))
