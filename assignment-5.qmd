@@ -1,0 +1,229 @@
+---
+title: "Assignment 5"
+format: pdf
+author:
+  - name: "Kerem Karagöz"
+  - name: "Immanuel Klein"
+execute: 
+  cache: true
+editor_options: 
+  chunk_output_type: console
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# General Information
+
+-   **Points**: Assignment 5 comprises of 6 tasks, 2 points each (12 in total).
+    2 points are obtained for complete and correct answers.
+    1 point is obtained for a proper approach or if only part of the task is solved.
+
+-   **Submission**: Hand in the assignment as a `Markdown` report ([RMarkdown](https://rmarkdown.rstudio.com/lesson-15.html) or [Quarto](https://rstudio.github.io/cheatsheets/html/quarto.html)) rendered as PDF.
+    The PDF report should show the result(s), the code that produced the result(s), and possibly additional text or comment.
+    Also indicate your name.
+    The report should be uploaded on Moodle until Friday, July 14, 6 pm.
+
+-   **Working in teams**: Everyone needs to hand in a report on Moodle.
+    However, the report can be handed in as a team work (max. 2 people).
+    When working in teams, state at the beginning of the document, who you worked with.
+    It Ideally, teams use GitHub and add a link to the GitHub repository to which both contributed.
+
+\newpage
+
+# Additional remarks
+
+## `ulam` and `Quarto`
+
+Running MCMC with `ulam()` takes some time and produces many messages.
+This can be annoying when you repeatedly render the `Quarto` document and the goal is to have a clean report.
+Here are some tips to avoid long rendering times and an ugly document:
+
+-   Write the ulam() model in a separate code chunk and give the chunk a name `{r name}`.In addition, specify the following settings at the top of the code chunk to avoid printing the MCMC progress messages of `ulam()` in the PDF document,
+
+``` r
+#| echo: true
+#| eval: true
+#| output: false
+
+# data list and model
+```
+
+-   Set the [caching option](https://quarto.org/docs/computations/caching.html) `cache: true` in the YAML header at the start of the document. The first time the code chunk is rendered, its results are cached (stored) in the background. If you leave the code chunk untouched, the results are directly retrieved the next time you render the document. This avoids rerunning a model with every new rendering of the document. The chunk will only be newly evaluated if you actually change its code. To allow `Quarto` to recognize a code chunk, it needs a name.
+
+## Data list and index variables
+
+-   Provide `ulam()` a list of variables and values that you need for estimating the model rather than the entire data frame.
+    `ulam()` works more reliable with lists.
+    Moreover, while creating the list, you can also recode variables (e.g., from dummy values (0,1) or group names (male, female) to index values (1,2))
+
+-   Using indices for group specific parameters such as in `y = a[G] + b[G]*X`, only works for integer values larger than 0, that is: `G = {1,2,3,...}`.
+    When the variable values are names or include 0, you have to recode it first.
+    Use the function `as.integer(variable)` if the variable is of type `factor` or `as.integer(as.factor(variable))` if the variable is of type `character`.
+    Use `variable + 1` when the variable is dummy coded with 0 and 1 to get values 1 and 2.
+
+\newpage
+
+GitHub: <https://github.com/immanuel-klein/bayesian-assignments.git>
+
+```{r packages}
+# load packages here
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(tinytex)
+library(rethinking)
+library(rstan)
+```
+
+# Task Set 1
+
+Load the data set `RiskyChoice.csv` to solve the Task Set 1.
+Use the `read_csv2()` function instead of `read_csv()`.
+
+```{r data}
+# load data here
+risky <- read_csv2("RiskyChoice.csv")
+head(risky)
+```
+
+## Task 1.1
+
+Create a reduced data table with only one row per subject that shows the number of solved choices problems (`nChoice`) and the number of correct choices (`nCorrect`) for each subject along with the other variables.
+Remove the subjects with missing values.
+Print the data of the first 10 subjects.
+
+```{r}
+# write code here
+risky.reduced <- risky %>%
+  filter(!is.na(CorrectChoice)) %>%
+  group_by(Subject) %>%
+  summarise(
+    Gender = first(Gender),
+    # Unfortunately, double values just loose their comma, i. e. 1.75 becomes 175
+    # No solution yet.
+    NegativeAffect = first(NegativeAffect),
+    Numeracy = first(Numeracy),
+    nChoice = n(),
+    nCorrect = sum(CorrectChoice)
+  ) %>% na.omit()
+
+head(risky.reduced, 10)
+```
+
+**Remark:** We understood the task the following way: If a subject has at least one NA value for CorrectChoice, do not take any values of this subject into the new table.
+However, this left us with a tibble with the dimensions 0x3, i.
+e.
+there is no subject that has no NA value for CorrectChoice.
+Thus, we decided to just filter the rows with NA for CorrectChoice instead of the whole subject.
+Also, because risky.reduced should only have one row per subject, we could only include Gender, NegativeAffect, and Numeracy.
+The others have differing values within the subjects.
+We then omit NAs.
+
+## Task 1.2
+
+Run a Bayesian regression model that predicts `nCorrect` from `Numeracy` using fixed intercepts and fixed slopes.
+Standardize the predictor before running the model and compute the WAIC of the model.
+
+```{r m1}
+#| echo: true
+#| eval: true
+#| output: false
+
+# write data list and model here
+risky.reduced.regr <- risky.reduced %>%
+  mutate(Numeracy_std = (Numeracy - mean(Numeracy)) / sd(Numeracy))
+
+m1 <- ulam(
+  alist(
+    # Choosing intercept and slope:
+    # When numeracy is 0, it's reasonable that correct choices come from guessing.
+    # Thus, ca 50% of all choices might be correct (0.5 of ~ 100 choices).
+    # Looking at the values where numeracy is 10, a 0.3 slope might make sense.
+    nCorrect ~ dnorm(mu, sigma),
+    mu <- 50 + 0.3 * Numeracy_std,
+    sigma ~ dexp(1)    
+    # I think a logit with dbinom might be better, but it just wont work.
+    # nCorrect ~ dbinom(nChoice, p),
+    # logit(p) <- 50 + 0.3 * Numeracy_std
+  ), data = risky.reduced.regr, chains = 4, cores = 4, log_lik = TRUE
+)
+```
+
+```{r}
+#write code here
+WAIC(m1)
+```
+
+## Task 1.3
+
+Run a Bayesian regression model that predicts `nCorrect` from `Numeracy` using random intercepts and fixed slopes.
+Standardize the predictor before running the model and compute the WAIC of the model.
+
+```{r m2}
+#| echo: true
+#| eval: true
+#| output: false
+
+# write data list and model here
+m2 <- ulam(
+  alist(
+    nCorrect ~ dnorm(mu, sigma),
+    mu <- a + 0.3 * Numeracy_std,
+    a ~ dnorm(50, 10),
+    sigma ~ dexp(1)    
+    # I think a logit with dbinom might be better, but it just wont work.
+    # nCorrect ~ dbinom(nChoice, p),
+    # logit(p) <- 50 + 0.3 * Numeracy_std
+  ), data = risky.reduced.regr, chains = 4, cores = 4, log_lik = TRUE
+)
+```
+
+```{r}
+# write code here
+WAIC(m2)
+```
+
+\newpage
+
+# Task Set 2
+
+## Task 2.1
+
+Create a data table that entails 10,000 posterior samples (rows) for each subject-specific (columns) intercept.
+Convert the sampled values into probabilities and print the first 10 samples of the first 10 subjects.
+
+```{r}
+# write code here
+
+# Doesn't work yet. Only shows 1s for every value. Either this is wrong or the ulam before.
+samples <- extract.samples(m2, n = 10000) 
+
+head(samples)
+
+probabilities <- data.frame(matrix(NA, nrow = 10000, ncol = length(risky.reduced)))
+head(probabilities)
+for (i in 1:length(risky.reduced)) {
+  probabilities[, i] <- inv_logit(samples$a[i])
+}
+head(probabilities, 10)
+```
+
+## Task 2.2
+
+Use the posterior samples to plot the posterior distribution of all subject-specific intercepts to show the variability in the performance among subjects.
+Use the converted values (probabilities).
+
+```{r}
+# write code here
+```
+
+## Task 2.3
+
+Consider the following posterior summaries and traceplots.
+Which model was estimated and what might be the cause of the convergence problems?
+
+```{r}
+precis(m3)
+traceplot_ulam(m3, pars = c("mu_a", "tau_a", "mu_b", "tau_b"))
+```
