@@ -6,63 +6,13 @@ author:
   - name: "Immanuel Klein"
 execute: 
   cache: true
+  warning: false
 editor_options: 
   chunk_output_type: console
 editor: 
   markdown: 
     wrap: sentence
 ---
-
-# General Information
-
--   **Points**: Assignment 5 comprises of 6 tasks, 2 points each (12 in total).
-    2 points are obtained for complete and correct answers.
-    1 point is obtained for a proper approach or if only part of the task is solved.
-
--   **Submission**: Hand in the assignment as a `Markdown` report ([RMarkdown](https://rmarkdown.rstudio.com/lesson-15.html) or [Quarto](https://rstudio.github.io/cheatsheets/html/quarto.html)) rendered as PDF.
-    The PDF report should show the result(s), the code that produced the result(s), and possibly additional text or comment.
-    Also indicate your name.
-    The report should be uploaded on Moodle until Friday, July 14, 6 pm.
-
--   **Working in teams**: Everyone needs to hand in a report on Moodle.
-    However, the report can be handed in as a team work (max. 2 people).
-    When working in teams, state at the beginning of the document, who you worked with.
-    It Ideally, teams use GitHub and add a link to the GitHub repository to which both contributed.
-
-\newpage
-
-# Additional remarks
-
-## `ulam` and `Quarto`
-
-Running MCMC with `ulam()` takes some time and produces many messages.
-This can be annoying when you repeatedly render the `Quarto` document and the goal is to have a clean report.
-Here are some tips to avoid long rendering times and an ugly document:
-
--   Write the ulam() model in a separate code chunk and give the chunk a name `{r name}`.In addition, specify the following settings at the top of the code chunk to avoid printing the MCMC progress messages of `ulam()` in the PDF document,
-
-``` r
-#| echo: true
-#| eval: true
-#| output: false
-
-# data list and model
-```
-
--   Set the [caching option](https://quarto.org/docs/computations/caching.html) `cache: true` in the YAML header at the start of the document. The first time the code chunk is rendered, its results are cached (stored) in the background. If you leave the code chunk untouched, the results are directly retrieved the next time you render the document. This avoids rerunning a model with every new rendering of the document. The chunk will only be newly evaluated if you actually change its code. To allow `Quarto` to recognize a code chunk, it needs a name.
-
-## Data list and index variables
-
--   Provide `ulam()` a list of variables and values that you need for estimating the model rather than the entire data frame.
-    `ulam()` works more reliable with lists.
-    Moreover, while creating the list, you can also recode variables (e.g., from dummy values (0,1) or group names (male, female) to index values (1,2))
-
--   Using indices for group specific parameters such as in `y = a[G] + b[G]*X`, only works for integer values larger than 0, that is: `G = {1,2,3,...}`.
-    When the variable values are names or include 0, you have to recode it first.
-    Use the function `as.integer(variable)` if the variable is of type `factor` or `as.integer(as.factor(variable))` if the variable is of type `character`.
-    Use `variable + 1` when the variable is dummy coded with 0 and 1 to get values 1 and 2.
-
-\newpage
 
 GitHub: <https://github.com/immanuel-klein/bayesian-assignments.git>
 
@@ -78,6 +28,8 @@ library(reshape2)
 library(ggridges)
 ```
 
+\newpage
+
 # Task Set 1
 
 Load the data set `RiskyChoice.csv` to solve the Task Set 1.
@@ -85,8 +37,9 @@ Use the `read_csv2()` function instead of `read_csv()`.
 
 ```{r data}
 # load data here
-#Used read.csv2 instead of read_csv2 to correctly get the decimal seperators for NegativeAffect
-#Then use as numerics to convert to num from character
+# Used read.csv2 instead of read_csv2 
+# to correctly get the decimal seperators for NegativeAffect
+# Then use as numerics to convert to num from character
 risky <- read.csv2("RiskyChoice.csv")
 risky$NegativeAffect <- as.numeric(risky$NegativeAffect)
 head(risky)
@@ -136,31 +89,29 @@ Standardize the predictor before running the model and compute the WAIC of the m
 # write data list and model here
 risky.reduced.regr <- risky.reduced %>%
   mutate(
-    Numeracy_std = (Numeracy - mean(Numeracy)) / sd(Numeracy),
-    Subject_idx = as.numeric(as.factor(Subject))  # Convert Subject to a numeric index
+    numeracy_std = (Numeracy - mean(Numeracy)) / sd(Numeracy),
+    # Convert Subject to a numeric index
+    subject_idx = as.numeric(as.factor(Subject))
 )
 
 data.list <- list(
   nCorrect = risky.reduced.regr$nCorrect,
   nChoice = risky.reduced.regr$nChoice,
-  Numeracy_std = risky.reduced.regr$Numeracy_std
+  numeracy_std = risky.reduced.regr$numeracy_std
 )
 
 m1 <- ulam(
   alist(
-    # Choosing intercept and slope:
+    nCorrect ~ dbinom(nChoice, p),
+    logit(p) <- a + b*numeracy_std,
+    # Choosing intercept and slope priors:
     # When numeracy is 0, it's reasonable that correct choices come from guessing.
     # Thus, ca 50% of all choices might be correct (0.5 of ~ 100 choices).
     # Looking at the values where numeracy is 10, a 0.3 slope might make sense.
-    nCorrect ~ dbinom(nChoice, p),
-    logit(p) <- a + b * Numeracy_std,  # Logit link function
-    a ~ dnorm(50, 10),                 # Prior for intercept on logit scale
-    b ~ dnorm(0.3, 0.1)                # Prior for slope on logit scale
+    a ~ dnorm(50, 10),
+    b ~ dnorm(0.3, 0.1)
   ), data = data.list, chains = 4, cores = 4, log_lik = TRUE
 )
-
-# Summarize the model
-precis(m1, depth = 2)
 ```
 
 ```{r}
@@ -183,21 +134,20 @@ Standardize the predictor before running the model and compute the WAIC of the m
 data.list2 <- list(
   nCorrect = risky.reduced.regr$nCorrect,
   nChoice = risky.reduced.regr$nChoice,
-  Numeracy_std = risky.reduced.regr$Numeracy_std,
-  Subject = risky.reduced.regr$Subject_idx
+  numeracy_std = risky.reduced.regr$numeracy_std,
+  subject = risky.reduced.regr$subject_idx
 )
 
 m2 <- ulam(
   alist(
     nCorrect ~ dbinom(nChoice, p),
-    logit(p) <- a[Subject] + beta * Numeracy_std,  # Specifies the linear predictor with random intercepts a[Subject] for each subject and a fixed slope beta
-    a[Subject] ~ dnorm(50, 10),  # Normal prior for the random intercepts a[Subject]
-    beta ~ dnorm(0.3, 0.1)  # Normal prior for the slope beta
+    logit(p) <- a[subject] + beta*numeracy_std,
+    a[subject] ~ dnorm(a_bar, tau_a),  
+    a_bar ~ dnorm(50, 10),
+    tau_a ~ dexp(0.5),
+    beta ~ dnorm(0.3, 0.1)
   ), data = data.list2, chains = 4, cores = 4, log_lik = TRUE
 )
-
-# Summarize the model
-precis(m2, depth = 2)
 ```
 
 ```{r}
@@ -218,12 +168,11 @@ Convert the sampled values into probabilities and print the first 10 samples of 
 # write code here
 samples <- extract.samples(m2, n = 10000) 
 
-# Convert intercepts to probabilities
 prob.samples <- inv_logit(samples$a)
 
-# Convert to data frame and print the first 10 samples for the first 10 subjects
 prob.samples.df <- as.data.frame(prob.samples)
-colnames(prob.samples.df) <- paste0("Subject.", 1:ncol(prob.samples.df))
+colnames(prob.samples.df) <- 
+  paste0("Subject ", 1:ncol(prob.samples.df))
 
 head(prob.samples.df[, 1:10], 10)
 
@@ -241,20 +190,11 @@ Use the converted values (probabilities).
 # Convert the wide format to long format for ggplot2
 prob.samples.long <- melt(prob.samples.df)
 
-# Create the ridgeline plot
-ggplot(prob.samples.long, aes(x = value, y = variable, height = ..density..)) +
-  geom_density_ridges(stat = "density", scale = 2, alpha = 0.7) +
-  labs(title = "Posterior Distributions of Subject-Specific Intercepts",
-       x = "Probability", y = "Subject") +
-  theme_ridges() +
-  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
-
 # Plot the posterior distributions
 ggplot(prob.samples.long, aes(x = value, fill = variable)) +
   geom_density(alpha = 0.5) +
   labs(title = "Posterior Distributions of Subject-Specific Intercepts",
        x = "Probability", y = "Density") +
-  theme_minimal() +
   theme(legend.position = "none")
 
 # An alternative version where we only use the first 10 subjects
@@ -266,8 +206,7 @@ ggplot(prob.samples.melt.subset, aes(x = value)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ variable, scales = "free_y") +
   labs(title = "Posterior Distributions of Subject-Specific Intercepts",
-       x = "Probability", y = "Density") +
-  theme_minimal()
+       x = "Probability", y = "Density")
 
 
 ```
@@ -278,29 +217,25 @@ Consider the following posterior summaries and traceplots.
 Which model was estimated and what might be the cause of the convergence problems?
 
 ```{r}
-#precis(m3)
-#traceplot_ulam(m3, pars = c("mu_a", "tau_a", "mu_b", "tau_b"))
-
-print("From the precis we can see that mu_a shows a good convergence with high effective sample size and Rhat close to 1, meaning that chains are well mixed. When we go from mu_a to tau_a, mu_b and tau_b in order the effective sample size becomes smaller, Rhat value is getting closer to 1 and showing poorer convergences. So tau_b shows significant issues during chain mixing and convergence.")
-
-print("The traceplots indicate that mu_a and tau_a show good mixing with stable chains and reliable parameter estimates. Mu_b has moderate mixing with some fluctuations and higher variability, reflected in a lower effective sample size and a slightly higher Rhat value. In contrast, tau_b exhibits poor mixing with significant drifts and trends, indicating unreliable parameter estimates and convergence issues.")
-
-print("Which model was estimated?")
-print("The estimated model is most likely a hierarchical Bayesian regression model with random intercepts and slopes. It includes a Hierarchical structure with hyperparameters mu_a, tau_a, mu_b, and tau_b to model the population-level mean and standard deviation of the intercepts and slopes.")
-print("What might be the cause of the convergence problems?")
-print("Poor Mixing of Chains:")
-print("The traceplots for tau_b show poor mixing with significant drifts and trends, indicating that the chains are not exploring the parameter space well.")
-print("The effective sample size (n_eff) for tau_b is very low (~44), suggesting that the sampler struggles to produce independent samples.")
-
-print("High Rhat Value:")
-print("The Rhat value for tau_b is significantly above 1 (~1.106), indicating that the chains have not converged to the same distribution. This is a strong sign of convergence issues.")
-
-print("Identifiability Issues:")
-print("tau_b (the standard deviation for the random slopes) might be poorly identified, leading to difficulties in sampling. The data may not provide enough information to reliably estimate this parameter, resulting in convergence problems.")
-
-print("Complex Model Structure:")
-print("The hierarchical nature of the model, with both random intercepts and slopes, increases the complexity of the parameter space. This complexity can make it challenging for the sampler to converge, especially if the data do not strongly inform all parameters.")
-
-print("Potentially Restrictive Priors:")
-print("The priors specified for tau_b and other parameters might be too restrictive or not well-aligned with the data. This misalignment can hinder the sampler's ability to explore the parameter space effectively.")
+# precis(m3)
+# traceplot_ulam(m3, pars = c("mu_a", "tau_a", "mu_b", "tau_b"))
 ```
+
+The estimated model is most likely a hierarchical Bayesian regression model with random intercepts and slopes.
+It includes a Hierarchical structure with hyperparameters mu_a, tau_a, mu_b, and tau_b to model the population-level mean and standard deviation of the intercepts and slopes.
+
+From the precis we can see that mu_a shows a good convergence with high effective sample size and rhat close to 1, meaning that chains are well mixed.
+When we go from mu_a to tau_a, mu_b and tau_b in order the effective sample size becomes smaller, rhat value is getting further away from 1 (except tau_a) and showing poorer convergences.
+So tau_b shows significant issues during chain mixing and convergence.
+Even though tau_a looks quite good from the parameters of precis its traceplot also collapses immediately.
+
+The effective sample size (n_eff) for tau_b is very low (\~44), suggesting that the sampler struggles to produce independent samples.
+The rhat value for tau_b is significantly above 1 (\~1.106), indicating that the chains have not converged to the same distribution.
+tau_b might be poorly identified, leading to difficulties in sampling.
+The data may not provide enough information to reliably estimate this parameter, resulting in convergence problems.
+
+The hierarchical nature of the model, with both random intercepts and slopes, increases the complexity of the parameter space.
+This complexity can make it challenging for the sampler to converge, especially if the data do not strongly inform all parameters.
+
+The priors specified for the parameters (especially tau_a and tau_b) might be too restrictive or not well-aligned with the data.
+This misalignment can hinder the sampler's ability to explore the parameter space effectively.
